@@ -4,7 +4,7 @@ import random
 
 random.seed(42)
 
-OUT_FILE = "connections_prompts.jsonl"
+OUT_FILE = "../connections_prompts.jsonl"
 data_folder = "./connections_data"
 
 def main():
