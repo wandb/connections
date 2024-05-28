@@ -54,10 +54,13 @@ def process(seed, download_folder, out_file):
                 random.shuffle(all_words)
                 out_obj = {
                     "words": all_words,
-                    "category_0": categories_and_members['category_0'],
-                    "category_1": categories_and_members['category_1'],
-                    "category_2": categories_and_members['category_2'],
-                    "category_3": categories_and_members['category_3']
+                    "solution": 
+                        [
+                            categories_and_members['category_0'],
+                            categories_and_members['category_1'],
+                            categories_and_members['category_2'],
+                            categories_and_members['category_3']
+                        ]
                 }
                 writef.write(f"{json.dumps(out_obj)}\n")
 
