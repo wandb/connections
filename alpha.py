@@ -53,6 +53,15 @@ class Solution(BaseModel):
     opinion: str
     score: int
     groups: list[Group] = Field(max_length=4, description="A list of 4 groups of 4 words with their reasons")
+
+    @classmethod
+    def from_sample(cls, sample):
+        return Solution(
+            opinion="Real solution",
+            score=7,
+            groups=[Group(reason=g["reason"], words=list(g["words"])) for g in sample]
+        )
+
     def __str__(self):
         return ("- [" + ",".join(str(group) for group in self.groups) + "]\n"
                 + f"  Opinion: {self.opinion}\n"
@@ -69,6 +78,8 @@ class Solution(BaseModel):
         return len(total_words) == 16
     
     def __eq__(self, other: 'Solution'):
+        print(self)
+        print(other)
         solution_set = {frozenset(group.words) for group in self.groups}
         other_set = {frozenset(group.words) for group in other.groups}
     
@@ -97,90 +108,125 @@ async def call_openai(messages, response_model=Solution, model=args.model):
     else:
         return response
 
-@weave.op()
-def solve(sample: dict) -> dict:
-    system_prompt = (
+
+class PuzzleModel(weave.Model):
+    system_prompt: str = (
         "You are an expert puzzle solver. You understand literature and you are well versed on word play. "
         "I want you to solve a daily word puzzle that finds commonalities between words.\n"
         )
 
-    user_prompt = (
-        "Here it's the puzzle:\n"
-        "- There are 16 words, which form 4 groups of 4 words. Each group has some common theme that links the words.\n"
-        "- You must use each of the 16 words, and use each word only once.\n"
-        "- Each group of 4 words are linked together in some way. \n"
-        "The connection between words can be simple.\n"
-        """- An example of a simple connection would be {"reason":'types of fish', "words":["Bass", "Flounder", "Salmon", "Trout"]}. \n"""
-        """- Categories can also be more complex, and require abstract or lateral thinking. An example of this type of connection would be {"reason": 'things that start with FIRE', "words": ['Ant', 'Drill', 'Island', 'Opal']}\n"""
-        f"Here are the starting 16 words:\n{sample['words']}\n"
-        "Give me an analysis of the puzzle and explore word relations. Does it lok hard? Are there multiple word connections?"
+    @weave.op()
+    async def analysis(self, messages, words):
+        user_prompt = (
+            "Here it's the puzzle:\n"
+            "- There are 16 words, which form 4 groups of 4 words. Each group has some common theme that links the words.\n"
+            "- You must use each of the 16 words, and use each word only once.\n"
+            "- Each group of 4 words are linked together in some way. \n"
+            "The connection between words can be simple.\n"
+            """- An example of a simple connection would be {"reason":'types of fish', "words":["Bass", "Flounder", "Salmon", "Trout"]}. \n"""
+            """- Categories can also be more complex, and require abstract or lateral thinking. An example of this type of connection would be {"reason": 'things that start with FIRE', "words": ['Ant', 'Drill', 'Island', 'Opal']}\n"""
+            f"Here are the starting 16 words:\n{words}\n"
+            "Give me an analysis of the puzzle and explore word relations. Does it lok hard? Are there multiple word connections?"
 
-    )
+        )
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ]
+        messages += [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
 
-    reflections = asyncio.run(call_openai(messages, response_model=None))
+        reflections = await call_openai(messages, response_model=None)
+        
+        messages += [{"role": "assistant", "content": str(reflections)},]
 
-    user_prompt = (
-        f"Ok, taking the previous analysis, let's try generating {args.N} different solutions to this problem. This means {args.N} times 4 groups of 4 words each. Remember to use all words and to not repeat words across groups.\n"
-        f"Score each solution from 1 to 7 and give me an opinion on why you picked that as a valid solution. Mark the solution as vadid if you think it's a good solution. If it's not a good solution, give me a reason why it's not a good solution."
-    )
+        return messages 
+    
+    @weave.op()
+    async def generate_solutions(self, messages, words):
 
-    messages += [
-        {"role": "assistant", "content": str(reflections)},
-        {"role": "user", "content": user_prompt}
-    ]
+        user_prompt = (
+            f"Ok, taking the previous analysis, let's try generating {args.N} different solutions to this problem. This means {args.N} times 4 groups of 4 words each. Remember to use all words and to not repeat words across groups.\n"
+            f"Score each solution from 1 to 7 and give me an opinion on why you picked that as a valid solution. Mark the solution as vadid if you think it's a good solution. If it's not a good solution, give me a reason why it's not a good solution."
+        )
 
-    possible_solutions = asyncio.run(call_openai(messages, response_model=PossibleSolutions))
+        messages += [
+            {"role": "user", "content": user_prompt}
+        ]
 
+        possible_solutions = await call_openai(messages, response_model=PossibleSolutions)
 
-    user_prompt2 = f"""Great, now we have to check if the solutions are correct.
-    - Analize the solution so the relation between words makes sense. 
-    - Veryfy that the words are related to each other by the reason you provided.
-    - Give a score from 1 to 7 to each solution.
-    - Reflect on each solution and give me an honest opinion on how plausible each solution is to be the real solution.
-    """
+        # let's check they are valid and filter out the ones that are not
+        validated_possible_solutions = PossibleSolutions(
+            solutions=[s for s in possible_solutions.solutions if s.validate(words)]
+        )
 
-    validated_possible_solutions = PossibleSolutions(solutions=[s for s in possible_solutions.solutions if s.validate(sample["words"])])
+        messages += [
+            {"role": "assistant", "content": "Here are the possible solutions: \n\n" + str(validated_possible_solutions)},
+        ]
 
-    messages += [
-        {"role": "assistant", "content": "Here are the possible solutions: \n\n" + str(validated_possible_solutions)},
-        {"role": "user", "content": user_prompt2}
-    ]
-
-    analysis_of_solutions = asyncio.run(call_openai(messages, response_model=None))
-
-
-    user_prompt3 = f"""Now that you have analized the solutions, I want you to give me the best solution. Argument why you picked this one.
-    """
-
-    messages += [
-        {"role": "assistant", "content": analysis_of_solutions},
-        {"role": "user", "content": user_prompt3}
-    ]
-
-    final_solution = asyncio.run(call_openai(messages, response_model=Solution))
-
-    target_solution = Solution(puzzle=sample["words"],groups=sample["solution"], opinion="Real solution", score=7)
+        return messages
 
     @weave.op()
-    def check_solution(solution, model_output):
-        return solution == model_output
+    async def analysis_of_solutions(self, messages):
+        user_prompt2 = f"""Great, now we have to check if the solutions are correct.
+        - Analize the solution so the relation between words makes sense. 
+        - Veryfy that the words are related to each other by the reason you provided.
+        - Give a score from 1 to 7 to each solution.
+        - Reflect on each solution and give me an honest opinion on how plausible each solution is to be the real solution.
+        """
 
-    return check_solution(final_solution, target_solution)
+        messages += [
+            {"role": "user", "content": user_prompt2}
+        ]
 
-    # weave_eval = weave.Evaluation(dataset=ds[:args.num_samples], scorers=[check_final_solution])
-    # print(asyncio.run(weave_eval.evaluate(model)))
+        analysis_of_solutions = await call_openai(messages, response_model=None)
 
+        messages += [
+            {"role": "assistant", "content": analysis_of_solutions},
+        ]
+
+        return messages
+    
+    @weave.op()
+    async def final_solution(self, messages):
+        user_prompt3 = f"""Now that you have analized the solutions, I want you to give me the best solution. Argument why you picked this one.
+        """
+
+        messages += [
+            {"role": "user", "content": user_prompt3}
+        ]
+
+        return await call_openai(messages, response_model=Solution)
+
+
+    @weave.op()
+    async def predict(self, words):
+        messages = []
+
+        messages = await self.analysis(messages, words)
+
+        messages = await self.generate_solutions(messages, words)
+
+        messages = await self.analysis_of_solutions(messages)
+
+        solution = await self.final_solution(messages)
+
+        return solution
+
+
+
+@weave.op()
+def check_final_solution(solution: dict, model_output: Solution):
+    return Solution.from_sample(solution) == model_output
 
 weave.init(args.weave_project)
 
 ds = load_jsonl(args.file_path)
 
-sample = ds[-1]
+model = PuzzleModel()
 
-solve(sample)
+# model_pred = asyncio.run(model.predict(words=ds[0]["words"]))
 
+weave_eval = weave.Evaluation(dataset=ds[:args.num_samples], scorers=[check_final_solution])
+
+print(asyncio.run(weave_eval.evaluate(model)))
