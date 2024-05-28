@@ -5,7 +5,12 @@ Solving [NY Times Connections](https://www.nytimes.com/games/connections) using 
 
 ## Files
 
-- download.py - Downloads the data from the NY Times Connections API
-- dataset.py - Cleans the data and saves it to a JSONL file
-- connections_prompts_cleaned.jsonl - The cleaned prompts
-- 00_getting_started.ipynb - A notebook to get started with the prompts and relizee how the LLM fails miserably
+- prepare_data.py: Downloads and process the dataset
+
+```python
+python prepare_data.py --download --process
+```
+
+- connections_prompts.jsonl - The final consolidated dataset
+- `run.py`: An iterative solution with feedback (3/4 or 4/4)
+- `alpha.py`: A flow engineer with plan
