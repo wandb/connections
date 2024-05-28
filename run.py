@@ -175,18 +175,19 @@ class Model(weave.Model):
         # we have the last group in here!
         if len(remaining_words) == 4: 
             print("We have the last group in here!")
-            correct_guesses.append({"remaining_words": remaining_words})
+            correct_guesses.append({"reason": "last_group", "words": remaining_words})
         return correct_guesses
 
 
 @weave.op()
 def check_final_solution(solution, model_output):
-    "Check that all group of words match the solution"    
-    try:
-        accuracy = len(model_output)
-    except:
-        accuracy = 0
-    return {"match": True if accuracy == 4 else False, "accuracy": accuracy}
+    "Check that all group of words match the solution"
+    solution_set = {frozenset(group["words"]) for group in solution}
+    model_output_set = {frozenset(group["words"]) for group in model_output}
+    
+    accuracy = len(solution_set.intersection(model_output_set))
+    
+    return {"match": accuracy == 4, "accuracy": accuracy}
 
 
 weave.init(args.weave_project)
