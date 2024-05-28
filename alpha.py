@@ -78,8 +78,6 @@ class Solution(BaseModel):
         return len(total_words) == 16
     
     def __eq__(self, other: 'Solution'):
-        print(self)
-        print(other)
         solution_set = {frozenset(group.words) for group in self.groups}
         other_set = {frozenset(group.words) for group in other.groups}
     
