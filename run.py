@@ -17,7 +17,7 @@ SLEEP_TIME = 0.2
 class ScriptArgs:
     model: str = "gpt-4o"
     weave_project: str = "connections_refactor"
-    file_path: str = "connections_prompts.jsonl"
+    file_path: str = "connections_prompts2.jsonl"
     max_retries: int = 4
     max_tokens: int = 128
     temperature: float = 0.7
@@ -59,19 +59,18 @@ async def generate_solution(messages):
     return generation
 
 @weave.op()
-def check_one_solution(categories, model_output):
-    try: # this is ugly, weave shouldn't crash even if chatGPT failed
-        for sol_cat, sol_group in categories.items():
-            for gen_cat, gen_group in model_output.items():
-                if set(gen_group) == set(sol_group):
-                    print(f"{gen_cat} ~ {sol_cat}: {gen_group} == {sol_group}")
-                    return {"match": True}
-                elif len(set(gen_group).intersection(set(sol_group))) == 3:
-                    return {"match": "3/4"}
-        else: 
-            return {"match": False} 
-    except:
+def check_one_solution(category_0, category_1, category_2, category_3, model_output):
+    for sol_dict in [category_0, category_1, category_2, category_3]:
+        sol_group = sol_dict["words"]
+        for gen_cat, gen_group in model_output.items():
+            if set(gen_group) == set(sol_group):
+                print(f"{gen_cat} ~ {sol_dict['reason']}: {gen_group} == {sol_group}")
+                return {"match": True}
+            elif len(set(gen_group).intersection(set(sol_group))) == 3:
+                return {"match": "3/4"}
+    else: 
         return {"match": False} 
+    #     return {"match": False} 
 
 
 system_prompt_cot = (
@@ -135,7 +134,7 @@ class ModelCOT(weave.Model):
         ]
 
     @weave.op()
-    async def predict(self, words, categories):
+    async def predict(self, words, category_0, category_1, category_2, category_3):
         messages = self.initial_messages(words)
         retries = 0
         correct_guesses = []
@@ -146,7 +145,7 @@ class ModelCOT(weave.Model):
             generation = await generate_solution(messages)
             time.sleep(SLEEP_TIME)
             print(f"Try {retries}. Remaining words: {remaining_words}, guess: {generation}")
-            scores = check_one_solution(categories, generation)
+            scores = check_one_solution(category_0, category_1, category_2, category_3, generation)
             time.sleep(SLEEP_TIME)
             if scores["match"]:
                 print(" > Great, we have a match")
@@ -183,10 +182,12 @@ weave.init(args.weave_project)
 
 model = ModelCOT(system_prompt=system_prompt_cot, user_prompt=user_prompt_cot, max_retries=args.max_retries)
 
-ds = load_jsonl('connections_prompts.jsonl')
+# ds = load_jsonl('connections_prompts2.jsonl')
+ds = load_jsonl(args.file_path)
 
-# print(model.predict(ds[0]["words"], ds[0]["categories"]))
 
-weave_eval = weave.Evaluation(dataset=ds[-args.num_samples:], scorers=[check_final_solution])
-print(asyncio.run(weave_eval.evaluate(model)))
+print(asyncio.run(model.predict(ds[0]["words"], ds[0]["category_0"], ds[0]["category_1"], ds[0]["category_2"], ds[0]["category_3"])))
+
+# weave_eval = weave.Evaluation(dataset=ds[-args.num_samples:], scorers=[check_final_solution])
+# print(asyncio.run(weave_eval.evaluate(model)))
 
