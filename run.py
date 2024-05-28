@@ -17,7 +17,7 @@ SLEEP_TIME = 0.2
 class ScriptArgs:
     model: str = "gpt-4o"
     weave_project: str = "connections_refactor"
-    file_path: str = "connections_prompts2.jsonl"
+    file_path: str = "connections_prompts.jsonl"
     max_retries: int = 4
     max_tokens: int = 128
     temperature: float = 0.7
