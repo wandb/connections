@@ -61,7 +61,7 @@ async def generate_solution(messages):
 def check_one_solution(solution, model_output):
     gen_reason= model_output["reason"]
     gen_words = model_output["words"]
-    for sol_dict in solution:
+    for sol_dict in solution["groups"]:
         sol_words = sol_dict["words"]
         sol_reason = sol_dict["reason"]
         if set(gen_words) == set(sol_words):
@@ -182,7 +182,7 @@ class Model(weave.Model):
 @weave.op()
 def check_final_solution(solution, model_output):
     "Check that all group of words match the solution"
-    solution_set = {frozenset(group["words"]) for group in solution}
+    solution_set = {frozenset(group["words"]) for group in solution["groups"]}
     model_output_set = {frozenset(group["words"]) for group in model_output}
     
     accuracy = len(solution_set.intersection(model_output_set))

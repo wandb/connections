@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import weave
 import openai
 import instructor
+
 from pydantic import BaseModel, Field
 
 import simple_parsing
@@ -26,6 +27,18 @@ class ScriptArgs:
     N: int = 3
 
 args = simple_parsing.parse(ScriptArgs)
+
+@weave.op()
+async def call_openai(messages, response_model=None, model=args.model):
+    response = await client.chat.completions.create(
+        model=model,
+        messages=messages,
+        response_model=response_model,
+        )
+    if response_model is None:
+        return response.choices[0].message.content
+    else:
+        return response
 
 def load_jsonl(file_path):
     data = []
@@ -50,17 +63,9 @@ class Group(BaseModel):
 
 
 class Solution(BaseModel):  
-    opinion: str
-    score: int
+    opinion: str = "A solution"
+    score: int = 7
     groups: list[Group] = Field(max_length=4, description="A list of 4 groups of 4 words with their reasons")
-
-    @classmethod
-    def from_sample(cls, sample):
-        return Solution(
-            opinion="Real solution",
-            score=7,
-            groups=[Group(reason=g["reason"], words=list(g["words"])) for g in sample]
-        )
 
     def __str__(self):
         return ("- [" + ",".join(str(group) for group in self.groups) + "]\n"
@@ -92,19 +97,6 @@ class PossibleSolutions(BaseModel):
     def __str__(self):
         return "\n".join(str(solution) for solution in self.solutions)
 
-
-
-@weave.op()
-async def call_openai(messages, response_model=Solution, model=args.model):
-    response = await client.chat.completions.create(
-        model=model,
-        messages=messages,
-        response_model=response_model,
-        )
-    if response_model is None:
-        return response.choices[0].message.content
-    else:
-        return response
 
 
 class PuzzleModel(weave.Model):
@@ -144,7 +136,7 @@ class PuzzleModel(weave.Model):
 
         user_prompt = (
             f"Ok, taking the previous analysis, let's try generating {args.N} different solutions to this problem. This means {args.N} times 4 groups of 4 words each. Remember to use all words and to not repeat words across groups.\n"
-            f"Score each solution from 1 to 7 and give me an opinion on why you picked that as a valid solution. Mark the solution as vadid if you think it's a good solution. If it's not a good solution, give me a reason why it's not a good solution."
+            f"Score each solution from 1 to 7 and give me an opinion on why you picked that as a valid solution. If it's not a good solution, give me a reason why it's not a good solution."
         )
 
         messages += [
@@ -165,11 +157,11 @@ class PuzzleModel(weave.Model):
         return messages
 
     @weave.op()
-    async def analysis_of_solutions(self, messages):
+    async def solutions_analysis(self, messages):
         user_prompt2 = f"""Great, now we have to check if the solutions are correct.
-        - Analize the solution so the relation between words makes sense. 
-        - Veryfy that the words are related to each other by the reason you provided.
-        - Give a score from 1 to 7 to each solution.
+        - Inspect the solution so the relation between words makes sense. 
+        - Verify that the words are related to each other by the reason you provided.
+        - Do the given scores match the quality of the solution?
         - Reflect on each solution and give me an honest opinion on how plausible each solution is to be the real solution.
         """
 
@@ -177,7 +169,7 @@ class PuzzleModel(weave.Model):
             {"role": "user", "content": user_prompt2}
         ]
 
-        analysis_of_solutions = await call_openai(messages, response_model=None)
+        analysis_of_solutions = await call_openai(messages, response_model=None)  #you the raw output from openai
 
         messages += [
             {"role": "assistant", "content": analysis_of_solutions},
@@ -205,25 +197,31 @@ class PuzzleModel(weave.Model):
 
         messages = await self.generate_solutions(messages, words)
 
-        messages = await self.analysis_of_solutions(messages)
+        messages = await self.solutions_analysis(messages)
 
-        solution = await self.final_solution(messages)
+        output = await self.final_solution(messages)
 
-        return solution
+        return output.dict()
 
 
 
 @weave.op()
-def check_final_solution(solution: dict, model_output: Solution):
-    return Solution.from_sample(solution) == model_output
+def check_final_solution(solution: dict, model_output: dict):
+    return Solution.model_validate(solution) == Solution.model_validate(model_output)
 
 weave.init(args.weave_project)
 
+# from instructor import retry
+
+# retry.process_response = weave.op()(retry.process_response)
+
 ds = load_jsonl(args.file_path)
 
-model = PuzzleModel()
 
+model = PuzzleModel()
 # model_pred = asyncio.run(model.predict(words=ds[0]["words"]))
+
+# check_final_solution(ds[0]["solution"], model_pred)
 
 weave_eval = weave.Evaluation(dataset=ds[:args.num_samples], scorers=[check_final_solution])
 

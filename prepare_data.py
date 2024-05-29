@@ -60,12 +60,11 @@ def process(download_folder, out_file):
                 out_obj = {
                     "words": all_words,
                     "solution": 
-                        [
-                            categories_and_members['category_0'],
-                            categories_and_members['category_1'],
-                            categories_and_members['category_2'],
-                            categories_and_members['category_3']
-                        ]
+                        {
+                            "groups":[categories_and_members['category_1'], categories_and_members['category_0'],
+                                      categories_and_members['category_2'], categories_and_members['category_3']
+                            ]
+                        }
                 }
                 writef.write(f"{json.dumps(out_obj)}\n")
 if __name__ == "__main__":
