@@ -19,7 +19,7 @@ SLEEP_TIME = 0.2
 @dataclass
 class ScriptArgs:
     model: str = "gpt-4o"
-    weave_project: str = "connections_alpha"
+    weave_project: str = "connections_demo"
     file_path: str = "connections_prompts.jsonl"
     max_tokens: int = 128
     temperature: float = 0.7
@@ -99,7 +99,7 @@ class PossibleSolutions(BaseModel):
 
 
 
-class PuzzleModel(weave.Model):
+class AlphaModel(weave.Model):
     system_prompt: str = (
         "You are an expert puzzle solver. You understand literature and you are well versed on word play. "
         "I want you to solve a daily word puzzle that finds commonalities between words.\n"
