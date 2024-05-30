@@ -3,11 +3,13 @@ import json
 import asyncio
 import httpx
 import pathlib
+import random
 from dataclasses import dataclass
 from tqdm import tqdm
 import simple_parsing
 from datetime import timedelta, datetime
 
+random.seed(42)
 URL = "https://www.nytimes.com/svc/connections/v1/{date}.json"
 
 @dataclass
@@ -18,6 +20,7 @@ class ScriptArgs:
     process: bool = False
     download_folder: str = "./connections_data"
     out_file: str = "./connections_prompts.jsonl"
+    shuffle: bool = True
 
 async def fetch_and_save(date, download_folder):
     formatted_date = date.strftime("%Y-%m-%d")
@@ -41,7 +44,7 @@ async def download(start_date, end_date, download_folder):
         await f
 
 
-def process(download_folder, out_file):
+def process(download_folder, out_file, shuffle=False):
     with open(out_file, "w", encoding='utf-8') as writef:
         for file in sorted(os.listdir(download_folder)): 
             if file.endswith(".json"):
@@ -57,6 +60,8 @@ def process(download_folder, out_file):
                     categories_and_members[category_key] = {"words": words, "reason": c.lower()}
                 
                 all_words = [word for category in categories_and_members.values() for word in category["words"]]
+                if shuffle:
+                    random.shuffle(all_words)
                 out_obj = {
                     "words": all_words,
                     "solution": 
@@ -72,6 +77,6 @@ if __name__ == "__main__":
     if args.download:
         asyncio.run(download(args.start_date, args.end_date, args.download_folder))
     if args.process:
-        process(args.download_folder, args.out_file)
+        process(args.download_folder, args.out_file, args.shuffle)
     print(f"Final output written to {args.out_file}")
 
