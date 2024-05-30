@@ -1,7 +1,5 @@
 import asyncio
-import time
 import json
-import random
 from dataclasses import dataclass
 
 import weave
@@ -11,6 +9,10 @@ import instructor
 from pydantic import BaseModel, Field
 
 import simple_parsing
+
+# patch instructor retry with weave
+from instructor import retry
+retry.process_response = weave.op()(retry.process_response)
 
 client = instructor.from_openai(openai.AsyncClient())
 
@@ -211,17 +213,9 @@ def check_final_solution(solution: dict, model_output: dict):
 
 weave.init(args.weave_project)
 
-# from instructor import retry
-
-# retry.process_response = weave.op()(retry.process_response)
-
 ds = load_jsonl(args.file_path)
 
-
-model = PuzzleModel()
-# model_pred = asyncio.run(model.predict(words=ds[0]["words"]))
-
-# check_final_solution(ds[0]["solution"], model_pred)
+model = AlphaModel()
 
 weave_eval = weave.Evaluation(dataset=ds[:args.num_samples], scorers=[check_final_solution])
 
