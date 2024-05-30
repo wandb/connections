@@ -92,7 +92,7 @@ user_prompt = (
 )
 
 
-class Model(weave.Model):
+class IterativeModel(weave.Model):
     system_prompt: str
     user_prompt: str
     max_retries: int = 4
@@ -192,7 +192,7 @@ def check_final_solution(solution, model_output):
 
 weave.init(args.weave_project)
 
-model = Model(system_prompt=system_prompt, user_prompt=user_prompt, max_retries=args.max_retries)
+model = IterativeModel(system_prompt=system_prompt, user_prompt=user_prompt, max_retries=args.max_retries)
 
 # ds = load_jsonl('connections_prompts2.jsonl')
 ds = load_jsonl(args.file_path)
