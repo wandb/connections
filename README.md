@@ -20,7 +20,7 @@ python prepare_data.py --download --process
 - `connections_prompts.jsonl` - The final consolidated dataset
 - `one_shot.py`: A one-shot solution, one prompt, one solution
 - `iterative.py`: An iterative solution with feedback (3/4 or 4/4)
-- `alpha.py`: A flow engineer solver with planning, insipired by [AlphaCodium paper](https://arxiv.org/pdf/2401.08500)
+- `alpha.py`: A flow engineer solver with planning, inspired by [AlphaCodium paper](https://arxiv.org/pdf/2401.08500)
 
 ## RUN
 To run on 10 samples:
