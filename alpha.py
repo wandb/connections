@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from dataclasses import dataclass
 
 import weave
@@ -21,7 +22,7 @@ SLEEP_TIME = 0.2
 @dataclass
 class ScriptArgs:
     model: str = "gpt-4o"
-    weave_project: str = "connections_demo"
+    weave_project: str = "prompt-eng/connections"
     file_path: str = "connections_prompts.jsonl"
     max_tokens: int = 128
     temperature: float = 0.7
@@ -217,6 +218,6 @@ ds = load_jsonl(args.file_path)
 
 model = AlphaModel()
 
-weave_eval = weave.Evaluation(dataset=ds[:args.num_samples], scorers=[check_final_solution])
+weave_eval = weave.Evaluation(dataset=ds[-args.num_samples:], scorers=[check_final_solution])
 
 print(asyncio.run(weave_eval.evaluate(model)))
