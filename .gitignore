@@ -1,1 +1,9 @@
 connections_data/
+
+# vscode
+.devcontainer/
+
+# MacOS
+.DS_Store
+
+__pycache__/

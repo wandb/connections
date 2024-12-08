@@ -14,6 +14,7 @@ pip install -r requirements.txt
 - `connections_prompts.jsonl` - The final consolidated dataset
 - `one_shot.py`: A one-shot solution, one prompt, one solution
 - `iterative.py`: An iterative solution with feedback (3/4 or 4/4)
+- `agentic_solver.py`: An agentic solver based on `langchain` and `langgraph` workflow.  Core functions are in the file `agentic_tools.py`.  Note: requires sqlite3 to be installed.
 - `alpha.py`: A flow engineer solver with planning, inspired by [AlphaCodium paper](https://arxiv.org/pdf/2401.08500)
 - `prepare_data.py`: Downloads and preprocesses the dataset (it's already there, only run if you want to download the most recent puzzles)
 
@@ -29,6 +30,13 @@ or
 ```python
 python iterative.py --num_samples 10
 ```
+
+or 
+
+```python
+python agentic_solver.py --num_samples 10
+```
+
 
 For the Alpha model, you can select `N` number of initial guess solutions to generate
 

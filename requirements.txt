@@ -1,5 +1,14 @@
 simple_parsing
+langchain
+langchain-openai
+langchain_community
+langgraph
 openai
 weave
 wandb
 instructor
+
+# required for agentic solver
+pandas
+scikit-learn
+aiosqlite
